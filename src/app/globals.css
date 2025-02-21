@@ -1,143 +1,413 @@
+/* app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Base font family */
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Custom properties for tree diagram */
 :root {
-  --primary: #00d1ff;
-  --secondary: #ff0099;
-  --accent: #7000ff;
-  --dark: #080b1a;
+  --primary: #00D1FF;
+  --secondary: #FF0099;
+  --accent: #7000FF;
+  --dark: #080B1A;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.1);
 }
 
-/* Theme variables */
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* Base styles */
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+body {
+  background: var(--dark);
+  color: white;
+  font-family: 'Helvetica Neue', sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
-/* Grid pattern background */
-.bg-grid-pattern {
-  background-image: linear-gradient(
-      rgba(255, 255, 255, 0.05) 1px,
-      transparent 1px
-    ),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+.abstract-bg {
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 20% 20%, rgba(0, 209, 255, 0.1), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(255, 0, 153, 0.1), transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(112, 0, 255, 0.1), transparent 60%);
+  z-index: -1;
+}
+
+.grid-pattern {
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
   background-size: 30px 30px;
+  opacity: 0.2;
+  z-index: -1;
 }
 
-/* Glass effect utility */
-.glass-effect {
-  @apply bg-white/5 backdrop-blur-lg border border-white/20;
+.container {
+  width: 100%;
+  overflow: hidden;
+  padding: 20px;
+  min-height: 100vh;
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Tree node animations */
-.tree-node-enter {
+.container:active {
+  cursor: grabbing;
+}
+
+.tree {
+  min-width: max-content;
+  display: inline-block;
+  position: relative;
+  transition: transform 0.1s ease;
+  transform-origin: center center;
+  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  margin-left: 50px;
+}
+
+/* Tree Structure */
+.tree ul {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 0 45px;
+  position: relative;
+  transition: all 0.5s;
+  white-space: nowrap;
+}
+
+.tree li {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 35px 0;
+  transition: all 0.5s;
+}
+
+.tree li::before,
+.tree li::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  border-left: 1px solid var(--glass-border);
+  height: 50%;
+  width: 45px;
+}
+
+.tree li::before {
+  border-top: 1px solid var(--glass-border);
+  top: 50%;
+  height: 0;
+}
+
+.tree li::after {
+  top: -50%;
+  height: 100%;
+}
+
+.tree li:first-child::after {
+  border-radius: 5px 0 0 0;
+  top: 50%;
+  height: 50%;
+}
+
+.tree li:last-child::after {
+  border-radius: 0 0 0 5px;
+  top: -50%;
+  height: 50%;
+}
+
+.tree li:only-child::after {
+  display: none;
+}
+
+.tree ul ul::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  border-left: 1px solid var(--glass-border);
+  height: 0;
+  width: 45px;
+}
+
+/* Node Styling */
+.node-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.node-wrapper a {
+  min-width: 120px;
+  padding: 12px 15px;
+  text-decoration: none;
+  color: white;
+  font-size: 14px;
+  display: inline-block;
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-right: 20px;
+}
+
+.node-wrapper a[contenteditable="true"] {
+  min-width: 150px;
+  outline: none;
+  border: 2px solid var(--primary);
+}
+
+.node-wrapper a.editing {
+  min-width: 150px;
+  border: 2px solid var(--primary) !important;
+}
+
+/* Level Colors */
+.level-1 { background: linear-gradient(135deg, rgba(0, 209, 255, 0.3), rgba(112, 0, 255, 0.3)); }
+.level-2 { background: linear-gradient(135deg, rgba(80, 200, 120, 0.3), rgba(0, 209, 255, 0.3)); }
+.level-3 { background: linear-gradient(135deg, rgba(245, 166, 35, 0.3), rgba(80, 200, 120, 0.3)); }
+.level-4 { background: linear-gradient(135deg, rgba(211, 84, 0, 0.3), rgba(245, 166, 35, 0.3)); }
+.level-5 { background: linear-gradient(135deg, rgba(142, 68, 173, 0.3), rgba(211, 84, 0, 0.3)); }
+.level-6 { background: linear-gradient(135deg, rgba(231, 76, 60, 0.3), rgba(142, 68, 173, 0.3)); }
+
+.node-wrapper a:hover {
+  transform: scale(1.05) translateX(5px);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+}
+
+.modal input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.modal button {
+  padding: 10px 15px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+/* Action Buttons */
+.node-actions {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  gap: 8px;
+  padding: 8px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  z-index: 100;
+}
+
+.node-wrapper:hover .node-actions {
+  display: flex;
+}
+
+.edit-button,
+.delete-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.edit-button:hover {
+  background: rgba(0, 209, 255, 0.2);
+  border-color: var(--primary);
+}
+
+.delete-button:hover {
+  background: rgba(255, 0, 153, 0.2);
+  border-color: var(--secondary);
+}
+
+/* Add Buttons */
+.add-buttons {
+  position: absolute;
+  left: calc(100% + 70px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
   opacity: 0;
-  transform: translateX(-20px);
+  padding: 8px;
+  transition: all 0.2s ease;
+  transition-delay: 0.2s;
+  z-index: 10;
 }
 
-.tree-node-enter-active {
+.add-button,
+.add-simple-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.3s;
+}
+
+.add-button:hover {
+  background: rgba(0, 209, 255, 0.2);
+  border-color: var(--primary);
+}
+
+.add-simple-button:hover {
+  background: rgba(112, 0, 255, 0.2);
+  border-color: var(--accent);
+}
+
+.node-wrapper:hover .add-buttons {
   opacity: 1;
-  transform: translateX(0);
-  transition: opacity 300ms, transform 300ms;
+  transform: translateY(-50%) translateX(-5px);
+  transition-delay: 0s;
 }
 
-.tree-node-exit {
-  opacity: 1;
+/* Zoom Controls */
+.zoom-controls {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: flex;
+  gap: 8px;
 }
 
-.tree-node-exit-active {
-  opacity: 0;
-  transform: translateX(-20px);
-  transition: opacity 300ms, transform 300ms;
+.zoom-controls button {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  font-size: 18px;
 }
 
-/* Loading animation */
+.zoom-controls button:hover {
+  background: rgba(0, 209, 255, 0.2);
+  border-color: var(--primary);
+}
+
+/* Dialog */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-content {
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 400px;
+}
+
+.dialog-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--glass-border);
+  border-radius: 5px;
+  padding: 10px;
+  color: white;
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* Loading Indicator */
+.loading {
+  position: absolute;
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: none;
+  color: white;
+}
+
 @keyframes dots {
-  0%,
-  20% {
-    content: "Đang tạo nội dung";
-  }
-  40% {
-    content: "Đang tạo nội dung.";
-  }
-  60% {
-    content: "Đang tạo nội dung..";
-  }
-  80%,
-  100% {
-    content: "Đang tạo nội dung...";
-  }
+  0%, 20% { content: "Đang tạo nội dung"; }
+  40% { content: "Đang tạo nội dung."; }
+  60% { content: "Đang tạo nội dung.."; }
+  80%, 100% { content: "Đang tạo nội dung..."; }
 }
 
 .loading::after {
@@ -146,24 +416,106 @@ body {
   animation: dots 1.4s infinite;
 }
 
-/* Media queries */
+/* Responsive Styles */
 @media (max-width: 1024px) {
   .container {
     width: 100vw;
     height: 100vh;
   }
+
+  .node-wrapper a {
+    min-width: 140px;
+    padding: 15px 20px;
+  }
+
+  .add-buttons {
+    padding: 20px 10px;
+  }
+
+  .add-button,
+  .add-simple-button,
+  .edit-button,
+  .delete-button {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+
+  .zoom-controls button {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+}
+/* app/globals.css - sửa lại phần node và action buttons */
+
+.node-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 200px; /* Tạo không gian cho nút */
 }
 
+.node {
+  min-width: 120px;
+  padding: 12px 15px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  transition: all 0.3s;
+}
+
+
+
+/* Hiện nút khi hover vào node-wrapper thay vì chỉ node */
+.node-wrapper:hover .node-actions {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Action Buttons */
+.action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  color: white;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Rest of the button styles remain the same */
 @media (max-width: 768px) {
   .tree li {
     padding: 25px 0;
   }
 
-  .input-form {
+  .node-wrapper a {
+    min-width: 120px;
+    font-size: 14px;
+  }
+
+  .dialog-content {
     width: 90%;
-    left: 50% !important;
-    transform: translateX(-50%);
-    padding: 20px;
+    margin: 0 20px;
+  }
+
+  .dialog-input {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 12px;
+  }
+
+  .add-buttons {
+    opacity: 1;
   }
 }
 
@@ -172,125 +524,14 @@ body {
     padding: 20px 0;
   }
 
+  .node-wrapper a {
+    min-width: 100px;
+    padding: 10px;
+    font-size: 13px;
+  }
+
   .zoom-controls {
     bottom: 20px;
     right: 20px;
-  }
-
-  .container {
-    width: 100%;
-    overflow: hidden;
-    padding: 20px;
-    min-height: 100vh;
-    position: relative;
-    cursor: grab;
-    touch-action: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .abstract-bg {
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(
-        circle at 20% 20%,
-        rgba(0, 209, 255, 0.1),
-        transparent 40%
-      ),
-      radial-gradient(
-        circle at 80% 80%,
-        rgba(255, 0, 153, 0.1),
-        transparent 40%
-      ),
-      radial-gradient(
-        circle at 50% 50%,
-        rgba(112, 0, 255, 0.1),
-        transparent 60%
-      );
-    z-index: -1;
-  }
-
-  .grid-pattern {
-    position: fixed;
-    inset: 0;
-    background-image: linear-gradient(
-        rgba(255, 255, 255, 0.05) 1px,
-        transparent 1px
-      ),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 30px 30px;
-    opacity: 0.2;
-    z-index: -1;
-  }
-
-  .tree {
-    min-width: max-content;
-    display: inline-block;
-    position: relative;
-    margin-left: 50px;
-  }
-
-  .tree ul {
-    display: flex;
-    flex-direction: column;
-    padding: 0 0 0 45px;
-    position: relative;
-    transition: all 0.5s;
-    white-space: nowrap;
-  }
-
-  .tree li {
-    display: flex;
-    align-items: center;
-    position: relative;
-    padding: 35px 0;
-    transition: all 0.5s;
-  }
-
-  .tree li::before,
-  .tree li::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    border-left: 1px solid var(--glass-border);
-    height: 50%;
-    width: 45px;
-  }
-
-  .tree li::before {
-    border-top: 1px solid var(--glass-border);
-    top: 50%;
-    height: 0;
-  }
-
-  .tree li::after {
-    top: -50%;
-    height: 100%;
-  }
-
-  .tree li:first-child::after {
-    border-radius: 5px 0 0 0;
-    top: 50%;
-    height: 50%;
-  }
-
-  .tree li:last-child::after {
-    border-radius: 0 0 0 5px;
-    top: -50%;
-    height: 50%;
-  }
-
-  .tree li:only-child::after {
-    display: none;
-  }
-
-  .tree ul ul::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    border-left: 1px solid var(--glass-border);
-    height: 0;
-    width: 45px;
   }
 }
