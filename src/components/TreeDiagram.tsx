@@ -1,20 +1,35 @@
 // components/TreeDiagram.tsx
 'use client'
-import { generateNodes } from '@/app/services/ai';
+import { generateNodes, generateNodesFromDb, generateProjectById } from '@/app/services/ai';
 import { deleteNode, findNode, getNodePath } from '@/app/services/tree';
 import type { TreeNode as TreeNodeType } from '@/types';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TreeNode } from './TreeNode';
+import { InputModal } from './InputModal';
+import { useSearchParams } from 'next/navigation';
 
 export function TreeDiagram() {
+  // State
+  const searchParams= useSearchParams()
   const [treeData, setTreeData] = useState<TreeNodeType>({
-    id: '1',
+    id: 'root',
     name: 'Nhập tên',
     level: 1,
     children: []
   });
 
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    title: '',
+    parentId: '',
+    useAI: false,
+    editingId: null as string | null,
+    initialValue: ''
+  });
+
   const [isLoading, setIsLoading] = useState(false);
+  const [nodes,setNodes] = useState([])
+  console.log("🚀 ~ nodes:", nodes)
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -22,79 +37,43 @@ export function TreeDiagram() {
 
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputFormRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Event handlers
-  const handleAdd = useCallback(async (parentId: string, useAI: boolean) => {
-    const parentNode = findNode([treeData], parentId);
-    if (!parentNode) return;
-
-    // Show input form
-    if (inputFormRef.current && inputRef.current) {
-      const rect = (event?.target as HTMLElement)?.getBoundingClientRect();
-      if (rect) {
-        inputFormRef.current.style.display = 'block';
-        inputFormRef.current.style.left = `${ rect.right + 5 }px`;
-        inputFormRef.current.style.top = `${ rect.top }px`;
-        inputRef.current.value = '';
-        inputRef.current.focus();
-        inputRef.current.dataset.useAi = useAI ? 'true' : 'false';
-        inputRef.current.dataset.parentId = parentId;
-      }
-    }
-  }, [treeData]);
+ useEffect(()=>{
+  const getProjectById = async () => {
+    const data = await generateProjectById(searchParams.get('id'))
+    setNodes(data)
+  }
+  getProjectById()
+ },[])
+  // Event Handlers
+  const handleAdd = useCallback((parentId: string, useAI: boolean) => {
+    setModalState({
+      isOpen: true,
+      title: useAI ? 'Thêm node với AI' : 'Thêm node mới',
+      parentId,
+      useAI,
+      editingId: null,
+      initialValue: ''
+    });
+  }, []);
 
   const handleEdit = useCallback((id: string) => {
     const node = findNode([treeData], id);
     if (!node) return;
 
-    // Tìm đúng `.node-wrapper` theo `data-node-id`
-    const nodeWrapper = document.querySelector(`.node-wrapper[data-node-id="${ id }"]`);
-    if (!nodeWrapper) return;
-
-    // Tìm `span` chứa tên node
-    const textElement = nodeWrapper.querySelector("span");
-    if (!textElement) return;
-
-    // Bật chế độ chỉnh sửa
-    textElement.setAttribute("contenteditable", "true");
-    textElement.classList.add("editing");
-    textElement.focus();
-
-    // Hàm lưu dữ liệu khi Enter hoặc mất focus
-    const saveEdit = () => {
-      const newValue = textElement.textContent?.trim() || node.name;
-      textElement.removeAttribute("contenteditable");
-      textElement.classList.remove("editing");
-
-      // Cập nhật state
-      setTreeData((prev) => {
-        const updateNode = (node: TreeNodeType): TreeNodeType => {
-          if (node.id === id) {
-            return { ...node, name: newValue };
-          }
-          return node.children ? { ...node, children: node.children.map(updateNode) } : node;
-        };
-        return updateNode(prev);
-      });
-    };
-
-    // Lưu thay đổi khi nhấn Enter
-    textElement.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        saveEdit();
-      }
+    setModalState({
+      isOpen: true,
+      title: 'Sửa node',
+      parentId: node.id,
+      useAI: false,
+      editingId: id,
+      initialValue: node.name
     });
-
-    // Lưu thay đổi khi mất focus
-    textElement.addEventListener("blur", saveEdit);
   }, [treeData]);
 
-
   const handleDelete = useCallback((id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa node này và tất cả node con của nó?')) {
+    if (id === 'root') return;
+    
+    if (window.confirm('Bạn có chắc chắn muốn xóa node này và tất cả node con?')) {
       setTreeData(prev => ({
         ...prev,
         children: deleteNode(prev.children || [], id)
@@ -102,30 +81,50 @@ export function TreeDiagram() {
     }
   }, []);
 
-  const handleInputConfirm = useCallback(async () => {
-    if (!inputRef.current) return;
+  const handleModalClose = useCallback(() => {
+    setModalState(prev => ({ ...prev, isOpen: false }));
+  }, []);
 
-    const value = inputRef.current.value.trim();
-    const useAI = inputRef.current.dataset.useAi === 'true';
-    const parentId = inputRef.current.dataset.parentId;
-
-    if (!value || !parentId) return;
+  const handleModalConfirm = useCallback(async (value: string) => {
+    if (!value.trim()) return;
 
     try {
       setIsLoading(true);
+      const { parentId, useAI, editingId } = modalState;
+
+      // Handle editing
+      if (editingId) {
+        setTreeData(prev => {
+          const updateNode = (node: TreeNodeType): TreeNodeType => {
+            if (node.id === editingId) {
+              return { ...node, name: value };
+            }
+            if (node.children) {
+              return {
+                ...node,
+                children: node.children.map(updateNode)
+              };
+            }
+            return node;
+          };
+          return updateNode(prev);
+        });
+        return;
+      }
+
+      // Handle adding new nodes
+      const parentNode = findNode([treeData], parentId);
+      if (!parentNode) return;
 
       if (useAI) {
-        const parentNode = findNode([treeData], parentId);
-        if (!parentNode) return;
-
         const contexts = getNodePath([treeData], parentId).map(node => ({
           text: node.name,
           level: node.level
         }));
 
         const generatedNodes = await generateNodes(value, contexts);
-
-        if (generatedNodes) {
+        
+        if (generatedNodes?.length) {
           const newNodes = generatedNodes.map(name => ({
             id: Math.random().toString(),
             name,
@@ -134,31 +133,25 @@ export function TreeDiagram() {
           }));
 
           setTreeData(prev => {
-            const updateNodeChildren = (node: TreeNodeType): TreeNodeType => {
+            const addNodes = (node: TreeNodeType): TreeNodeType => {
               if (node.id === parentId) {
                 return {
                   ...node,
                   children: [...(node.children || []), ...newNodes]
                 };
               }
-
               if (node.children) {
                 return {
                   ...node,
-                  children: node.children.map(child => updateNodeChildren(child))
+                  children: node.children.map(addNodes)
                 };
               }
-
               return node;
             };
-
-            return updateNodeChildren(prev);
+            return addNodes(prev);
           });
         }
       } else {
-        const parentNode = findNode([treeData], parentId);
-        if (!parentNode) return;
-
         const newNode = {
           id: Math.random().toString(),
           name: value,
@@ -167,25 +160,22 @@ export function TreeDiagram() {
         };
 
         setTreeData(prev => {
-          const updateNodeChildren = (node: TreeNodeType): TreeNodeType => {
+          const addNode = (node: TreeNodeType): TreeNodeType => {
             if (node.id === parentId) {
               return {
                 ...node,
                 children: [...(node.children || []), newNode]
               };
             }
-
             if (node.children) {
               return {
                 ...node,
-                children: node.children.map(child => updateNodeChildren(child))
+                children: node.children.map(addNode)
               };
             }
-
             return node;
           };
-
-          return updateNodeChildren(prev);
+          return addNode(prev);
         });
       }
     } catch (error) {
@@ -193,17 +183,15 @@ export function TreeDiagram() {
       alert('Đã xảy ra lỗi. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
-      if (inputFormRef.current) {
-        inputFormRef.current.style.display = 'none';
-      }
+      handleModalClose();
     }
-  }, [treeData]);
+  }, [modalState, treeData]);
 
-  // Pan and zoom handlers
+  // Pan and Zoom handlers
   const handleStartDrag = useCallback((e: React.MouseEvent) => {
     if (e.target instanceof HTMLElement &&
       (e.target.closest('button') || e.target.closest('input') ||
-        e.target.closest('.node-actions') || e.target.closest('.add-buttons'))) {
+        e.target.closest('.node-actions'))) {
       return;
     }
     setIsDragging(true);
@@ -215,7 +203,7 @@ export function TreeDiagram() {
 
   const handleDrag = useCallback((e: React.MouseEvent) => {
     if (!isDragging) return;
-
+    
     setPosition({
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y
@@ -240,7 +228,9 @@ export function TreeDiagram() {
         <div className="tree">
           <div
             style={{
-              transform: `scale(${ zoom }) translate(${ position.x }px, ${ position.y }px)`
+              transform: `scale(${zoom}) translate(${position.x}px, ${position.y}px)`,
+              transformOrigin: '0 0',
+              transition: isDragging ? 'none' : 'transform 0.1s ease'
             }}
           >
             <TreeNode
@@ -253,25 +243,15 @@ export function TreeDiagram() {
         </div>
       </div>
 
-      {/* Input Form */}
-      <div className="input-form" ref={inputFormRef}>
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Nhập yêu cầu của bạn"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleInputConfirm();
-            if (e.key === 'Escape') inputFormRef.current!.style.display = 'none';
-          }}
-        />
-        <button onClick={handleInputConfirm}>OK</button>
-        <button onClick={() => inputFormRef.current!.style.display = 'none'}>Hủy</button>
-      </div>
+      <InputModal
+        isOpen={modalState.isOpen}
+        title={modalState.title}
+        initialValue={modalState.initialValue}
+        onClose={handleModalClose}
+        onConfirm={handleModalConfirm}
+        isLoading={isLoading}
+      />
 
-      {/* Loading */}
-      <div className="loading" style={{ display: isLoading ? 'block' : 'none' }} />
-
-      {/* Zoom Controls */}
       <div className="zoom-controls">
         <button onClick={() => setZoom(z => Math.min(z + 0.1, 2))}>+</button>
         <button onClick={() => {
@@ -280,7 +260,6 @@ export function TreeDiagram() {
         }}>⟳</button>
         <button onClick={() => setZoom(z => Math.max(z - 0.1, 0.5))}>-</button>
       </div>
-
     </div>
   );
 }

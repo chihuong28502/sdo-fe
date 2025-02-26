@@ -1,4 +1,7 @@
 // app/services/ai.ts
+
+import axios from "axios";
+
 // src/types/index.ts
 export interface NodeContext {
   text: string;
@@ -15,10 +18,10 @@ export interface TreeNode {
 
 export async function generateNodes(prompt: string, contexts: NodeContext[] = []): Promise<string[] | null> {
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  
+
   try {
     const contextString = contexts
-      .map(ctx => `Level ${ctx.level}: "${ctx.text}"`)
+      .map(ctx => `Level ${ ctx.level }: "${ ctx.text }"`)
       .join(' -> ');
 
     const response = await fetch(
@@ -33,8 +36,8 @@ export async function generateNodes(prompt: string, contexts: NodeContext[] = []
           contents: [{
             parts: [{
               text: `Tôi đang tạo một sơ đồ phân cấp. Đây là đường dẫn ngữ cảnh hiện tại:
-                ${contextString}
-                Yêu cầu của người dùng để tạo các node con: "${prompt}"
+                ${ contextString }
+                Yêu cầu của người dùng để tạo các node con: "${ prompt }"
                 
                 Dựa trên ngữ cảnh này, hãy tạo 4-6 node con liên quan.
                 Node con phải có liên quan đến cả node cha trực tiếp và toàn bộ ngữ cảnh.
@@ -51,7 +54,7 @@ export async function generateNodes(prompt: string, contexts: NodeContext[] = []
     );
 
     const data = await response.json();
-    
+
     if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
       const text = data.candidates[0].content.parts[0].text.trim();
       try {
@@ -65,6 +68,7 @@ export async function generateNodes(prompt: string, contexts: NodeContext[] = []
           try {
             const parsedNodes = JSON.parse(match[0]);
             if (Array.isArray(parsedNodes)) {
+              console.log("🚀 ~ parsedNodes:", parsedNodes)
               return parsedNodes;
             }
           } catch (e2) {
@@ -73,12 +77,34 @@ export async function generateNodes(prompt: string, contexts: NodeContext[] = []
         }
       }
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error calling Gemini API:', error);
     return null;
   }
 }
+export async function generateNodesFromDb(prompt: string, idChildrent: string): Promise<any> {
+  const res = await axios.post(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/generate-nodes`, {
+    prompt,
+    idChildrent
+  });
+  console.log("res.data", res.data);
 
+  return res.data;
+}
+
+export async function generateAllProject(): Promise<any> {
+  const res = await axios.get(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/get-all-projects`);
+  console.log("res.data", res.data);
+
+  return res.data.data;
+}
+
+export async function generateProjectById(id :any): Promise<any> {
+  const res = await axios.get(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/get-project/${id}`);
+  console.log("res.data", res.data);
+
+  return res.data.data;
+}
 // src/services/tree.ts
