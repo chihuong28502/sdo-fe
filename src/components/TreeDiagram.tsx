@@ -1,6 +1,6 @@
 // components/TreeDiagram.tsx
 'use client'
-import { createNodeByAi, createNodeNormal, generateProjectById } from '@/app/services/ai';
+import { createNodeByAi, createNodeNormal, deleteNodeApi, eidtNodeApi, generateProjectById } from '@/app/services/ai';
 import { deleteNode, findNode, getNodePath } from '@/app/services/tree';
 import { transformData } from '@/app/utils/transformData';
 import type { TreeNode as TreeNodeType } from '@/types';
@@ -90,43 +90,46 @@ export function TreeDiagram() {
     });
   }, [treeData]);
 
-  const handleDelete = useCallback((id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (id === treeData.id) return; // Prevent deleting root node
 
     if (window.confirm('Bạn có chắc chắn muốn xóa node này và tất cả node con?')) {
-      setTreeData(prev => {
-        // Nếu node được xóa là con trực tiếp của root
-        if (prev.children?.some(child => child.id === id)) {
+      const node = await deleteNodeApi(id);
+      if (node) {
+        setTreeData(prev => {
+          // Nếu node được xóa là con trực tiếp của root
+          if (prev.children?.some(child => child.id === id)) {
+            return {
+              ...prev,
+              children: prev.children.filter(child => child.id !== id)
+            };
+          }
+
+          // Nếu node ở sâu hơn
+          const updateChildren = (children: TreeNodeType[]): TreeNodeType[] => {
+            return children.map(child => {
+              if (child.children?.some(grandChild => grandChild.id === id)) {
+                return {
+                  ...child,
+                  children: child.children.filter(grandChild => grandChild.id !== id)
+                };
+              }
+              if (child.children) {
+                return {
+                  ...child,
+                  children: updateChildren(child.children)
+                };
+              }
+              return child;
+            });
+          };
+
           return {
             ...prev,
-            children: prev.children.filter(child => child.id !== id)
+            children: prev.children ? updateChildren(prev.children) : []
           };
-        }
-
-        // Nếu node ở sâu hơn
-        const updateChildren = (children: TreeNodeType[]): TreeNodeType[] => {
-          return children.map(child => {
-            if (child.children?.some(grandChild => grandChild.id === id)) {
-              return {
-                ...child,
-                children: child.children.filter(grandChild => grandChild.id !== id)
-              };
-            }
-            if (child.children) {
-              return {
-                ...child,
-                children: updateChildren(child.children)
-              };
-            }
-            return child;
-          });
-        };
-
-        return {
-          ...prev,
-          children: prev.children ? updateChildren(prev.children) : []
-        };
-      });
+        });
+      }
     }
   }, [treeData]);
 
@@ -139,10 +142,10 @@ export function TreeDiagram() {
 
     try {
       setIsLoading(true);
-      const { parentId, useAI, editingId } = modalState;
-
+      const { parentId, useAI, editingId }: any = modalState;
+      const data = await eidtNodeApi(value, editingId)
       // Handle editing existing node
-      if (editingId) {
+      if (editingId && data) {
         setTreeData(prev => {
           const updateNode = (node: TreeNodeType): TreeNodeType => {
             if (node.id === editingId) {
@@ -168,43 +171,15 @@ export function TreeDiagram() {
       if (useAI) {
         // Gọi API tạo node bằng AI
         const aiNodes = await createNodeByAi({ prompt: value, idChildrent: parentId });
-        await fetchData()
-       
-      } 
-      // else {
-      //   // Gọi API tạo node thông thường
-      //   const newNodeData = await createNodeNormal(parentId, value);
+        if (aiNodes)
+          await fetchData()
 
-      //   if (newNodeData) {
-      //     // Chuyển đổi dữ liệu từ backend sang cấu trúc TreeNode
-      //     const newNode = {
-      //       id: newNodeData._id,
-      //       name: newNodeData.name,
-      //       level: parentNode.level + 1,
-      //       children: []
-      //     };
-
-      //     // Thêm node mới vào tree
-      //     setTreeData(prev => {
-      //       const addNode = (node: TreeNodeType): TreeNodeType => {
-      //         if (node.id === parentId) {
-      //           return {
-      //             ...node,
-      //             children: [...(node.children || []), newNode]
-      //           };
-      //         }
-      //         if (node.children) {
-      //           return {
-      //             ...node,
-      //             children: node.children.map(addNode)
-      //           };
-      //         }
-      //         return node;
-      //       };
-      //       return addNode(prev);
-      //     });
-      //   }
-      // }
+      }
+      else {
+        const nodeNormal = await createNodeNormal(value, parentId)
+        if (nodeNormal)
+          await fetchData()
+      }
     } catch (error) {
       console.error('Error:', error);
       alert('Đã xảy ra lỗi. Vui lòng thử lại.');

@@ -68,7 +68,6 @@ export async function generateNodes(prompt: string, contexts: NodeContext[] = []
           try {
             const parsedNodes = JSON.parse(match[0]);
             if (Array.isArray(parsedNodes)) {
-              console.log("🚀 ~ parsedNodes:", parsedNodes)
               return parsedNodes;
             }
           } catch (e2) {
@@ -84,15 +83,7 @@ export async function generateNodes(prompt: string, contexts: NodeContext[] = []
     return null;
   }
 }
-export async function generateNodesFromDb(prompt: string, idChildrent: string): Promise<any> {
-  const res = await axios.post(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/generate-nodes`, {
-    prompt,
-    idChildrent
-  });
-  console.log("res.data", res.data);
 
-  return res.data;
-}
 
 export async function generateAllProject(): Promise<any> {
   const res = await axios.get(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/get-all-projects`);
@@ -113,5 +104,27 @@ export async function createNodeByAi({ prompt, idChildrent }: any): Promise<any>
 
   return res.data.data;
 }
-export async function createNodeNormal(): Promise<any> { }
+export async function createNodeNormal(prompt: string, idChildrent: string): Promise<any> {
+  const res = await axios.post(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/generate-nodes-noAi`, {
+    prompt,
+    idChildrent
+  });
+
+  return res.data;
+}
+
+export async function eidtNodeApi(name: string, idNode: string): Promise<any> {
+  const res = await axios.post(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/edit/node`, {
+    name,
+    idNode
+  });
+
+  return res.data;
+}
+
+export async function deleteNodeApi(id: string): Promise<any> {
+  const res = await axios.delete(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/delete/node/${ id }`);
+
+  return res.data;
+}
 // src/services/tree.ts

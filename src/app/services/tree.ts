@@ -5,7 +5,6 @@ export function findNode(tree: TreeNode[], id: string): TreeNode | null {
     if (node.id === id) return node;
     if (node.children) {
       const found = findNode(node.children, id);
-      console.log("🚀 ~ found:", found)
       if (found) return found;
     }
   }

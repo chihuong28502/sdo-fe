@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 export default function Home() {
   const route = useRouter()
   const [listProject, setListProject] = useState([])
-  console.log("🚀 ~ listProject:", listProject)
   useEffect(() => {
     const getProject = async () => {
       const data: any = await generateAllProject()
