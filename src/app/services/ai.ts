@@ -101,10 +101,17 @@ export async function generateAllProject(): Promise<any> {
   return res.data.data;
 }
 
-export async function generateProjectById(id :any): Promise<any> {
-  const res = await axios.get(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/get-project/${id}`);
+export async function generateProjectById(id: any): Promise<any> {
+  const res = await axios.get(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/get-project/${ id }`);
   console.log("res.data", res.data);
 
   return res.data.data;
 }
+
+export async function createNodeByAi({ prompt, idChildrent }: any): Promise<any> {
+  const res = await axios.post(`${ process.env.NEXT_PUBLIC_API_SERVER }/tree/generate-nodes`, { prompt, idChildrent });
+
+  return res.data.data;
+}
+export async function createNodeNormal(): Promise<any> { }
 // src/services/tree.ts

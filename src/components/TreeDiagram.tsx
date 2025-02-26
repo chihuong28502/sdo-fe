@@ -1,7 +1,8 @@
 // components/TreeDiagram.tsx
 'use client'
-import { generateNodes, generateNodesFromDb, generateProjectById } from '@/app/services/ai';
+import { createNodeByAi, createNodeNormal, generateProjectById } from '@/app/services/ai';
 import { deleteNode, findNode, getNodePath } from '@/app/services/tree';
+import { transformData } from '@/app/utils/transformData';
 import type { TreeNode as TreeNodeType } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TreeNode } from './TreeNode';
@@ -10,10 +11,10 @@ import { useSearchParams } from 'next/navigation';
 
 export function TreeDiagram() {
   // State
-  const searchParams= useSearchParams()
+  const searchParams = useSearchParams();
   const [treeData, setTreeData] = useState<TreeNodeType>({
     id: 'root',
-    name: 'Nhập tên',
+    name: 'Đang tải...',
     level: 1,
     children: []
   });
@@ -28,8 +29,7 @@ export function TreeDiagram() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const [nodes,setNodes] = useState([])
-  console.log("🚀 ~ nodes:", nodes)
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -37,13 +37,33 @@ export function TreeDiagram() {
 
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
- useEffect(()=>{
-  const getProjectById = async () => {
-    const data = await generateProjectById(searchParams.get('id'))
-    setNodes(data)
-  }
-  getProjectById()
- },[])
+  const fetchData = async () => {
+    try {
+      setIsDataLoading(true);
+      const projectId = searchParams.get('id');
+      if (projectId) {
+        const data = await generateProjectById(projectId);
+        console.log('🚀 ~ fetchData ~ data:', data);
+
+        if (data) {
+          // Chuyển đổi dữ liệu từ backend sang định dạng TreeNode
+          const transformedData = transformData(data);
+          setTreeData(transformedData);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching project data:', error);
+    } finally {
+      setIsDataLoading(false);
+    }
+  };
+
+  // Fetch data on component mount
+  useEffect(() => {
+
+    fetchData();
+  }, [searchParams]);
+
   // Event Handlers
   const handleAdd = useCallback((parentId: string, useAI: boolean) => {
     setModalState({
@@ -71,15 +91,44 @@ export function TreeDiagram() {
   }, [treeData]);
 
   const handleDelete = useCallback((id: string) => {
-    if (id === 'root') return;
-    
+    if (id === treeData.id) return; // Prevent deleting root node
+
     if (window.confirm('Bạn có chắc chắn muốn xóa node này và tất cả node con?')) {
-      setTreeData(prev => ({
-        ...prev,
-        children: deleteNode(prev.children || [], id)
-      }));
+      setTreeData(prev => {
+        // Nếu node được xóa là con trực tiếp của root
+        if (prev.children?.some(child => child.id === id)) {
+          return {
+            ...prev,
+            children: prev.children.filter(child => child.id !== id)
+          };
+        }
+
+        // Nếu node ở sâu hơn
+        const updateChildren = (children: TreeNodeType[]): TreeNodeType[] => {
+          return children.map(child => {
+            if (child.children?.some(grandChild => grandChild.id === id)) {
+              return {
+                ...child,
+                children: child.children.filter(grandChild => grandChild.id !== id)
+              };
+            }
+            if (child.children) {
+              return {
+                ...child,
+                children: updateChildren(child.children)
+              };
+            }
+            return child;
+          });
+        };
+
+        return {
+          ...prev,
+          children: prev.children ? updateChildren(prev.children) : []
+        };
+      });
     }
-  }, []);
+  }, [treeData]);
 
   const handleModalClose = useCallback(() => {
     setModalState(prev => ({ ...prev, isOpen: false }));
@@ -92,7 +141,7 @@ export function TreeDiagram() {
       setIsLoading(true);
       const { parentId, useAI, editingId } = modalState;
 
-      // Handle editing
+      // Handle editing existing node
       if (editingId) {
         setTreeData(prev => {
           const updateNode = (node: TreeNodeType): TreeNodeType => {
@@ -112,72 +161,50 @@ export function TreeDiagram() {
         return;
       }
 
-      // Handle adding new nodes
+      // Handle adding new node
       const parentNode = findNode([treeData], parentId);
       if (!parentNode) return;
 
       if (useAI) {
-        const contexts = getNodePath([treeData], parentId).map(node => ({
-          text: node.name,
-          level: node.level
-        }));
+        // Gọi API tạo node bằng AI
+        const aiNodes = await createNodeByAi({ prompt: value, idChildrent: parentId });
+        await fetchData()
+       
+      } 
+      // else {
+      //   // Gọi API tạo node thông thường
+      //   const newNodeData = await createNodeNormal(parentId, value);
 
-        const generatedNodes = await generateNodes(value, contexts);
-        
-        if (generatedNodes?.length) {
-          const newNodes = generatedNodes.map(name => ({
-            id: Math.random().toString(),
-            name,
-            level: parentNode.level + 1,
-            children: []
-          }));
+      //   if (newNodeData) {
+      //     // Chuyển đổi dữ liệu từ backend sang cấu trúc TreeNode
+      //     const newNode = {
+      //       id: newNodeData._id,
+      //       name: newNodeData.name,
+      //       level: parentNode.level + 1,
+      //       children: []
+      //     };
 
-          setTreeData(prev => {
-            const addNodes = (node: TreeNodeType): TreeNodeType => {
-              if (node.id === parentId) {
-                return {
-                  ...node,
-                  children: [...(node.children || []), ...newNodes]
-                };
-              }
-              if (node.children) {
-                return {
-                  ...node,
-                  children: node.children.map(addNodes)
-                };
-              }
-              return node;
-            };
-            return addNodes(prev);
-          });
-        }
-      } else {
-        const newNode = {
-          id: Math.random().toString(),
-          name: value,
-          level: parentNode.level + 1,
-          children: []
-        };
-
-        setTreeData(prev => {
-          const addNode = (node: TreeNodeType): TreeNodeType => {
-            if (node.id === parentId) {
-              return {
-                ...node,
-                children: [...(node.children || []), newNode]
-              };
-            }
-            if (node.children) {
-              return {
-                ...node,
-                children: node.children.map(addNode)
-              };
-            }
-            return node;
-          };
-          return addNode(prev);
-        });
-      }
+      //     // Thêm node mới vào tree
+      //     setTreeData(prev => {
+      //       const addNode = (node: TreeNodeType): TreeNodeType => {
+      //         if (node.id === parentId) {
+      //           return {
+      //             ...node,
+      //             children: [...(node.children || []), newNode]
+      //           };
+      //         }
+      //         if (node.children) {
+      //           return {
+      //             ...node,
+      //             children: node.children.map(addNode)
+      //           };
+      //         }
+      //         return node;
+      //       };
+      //       return addNode(prev);
+      //     });
+      //   }
+      // }
     } catch (error) {
       console.error('Error:', error);
       alert('Đã xảy ra lỗi. Vui lòng thử lại.');
@@ -203,7 +230,7 @@ export function TreeDiagram() {
 
   const handleDrag = useCallback((e: React.MouseEvent) => {
     if (!isDragging) return;
-    
+
     setPosition({
       x: e.clientX - dragStart.x,
       y: e.clientY - dragStart.y
@@ -225,22 +252,28 @@ export function TreeDiagram() {
         onMouseUp={handleStopDrag}
         onMouseLeave={handleStopDrag}
       >
-        <div className="tree">
-          <div
-            style={{
-              transform: `scale(${zoom}) translate(${position.x}px, ${position.y}px)`,
-              transformOrigin: '0 0',
-              transition: isDragging ? 'none' : 'transform 0.1s ease'
-            }}
-          >
-            <TreeNode
-              node={treeData}
-              onAdd={handleAdd}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+        {isDataLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-white text-lg">Đang tải dữ liệu...</div>
           </div>
-        </div>
+        ) : (
+          <div className="tree">
+            <div
+              style={{
+                transform: `scale(${ zoom }) translate(${ position.x }px, ${ position.y }px)`,
+                transformOrigin: '0 0',
+                transition: isDragging ? 'none' : 'transform 0.1s ease'
+              }}
+            >
+              <TreeNode
+                node={treeData}
+                onAdd={handleAdd}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <InputModal
