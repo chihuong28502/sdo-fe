@@ -143,25 +143,28 @@ export function TreeDiagram() {
     try {
       setIsLoading(true);
       const { parentId, useAI, editingId }: any = modalState;
-      const data = await eidtNodeApi(value, editingId)
       // Handle editing existing node
-      if (editingId && data) {
-        setTreeData(prev => {
-          const updateNode = (node: TreeNodeType): TreeNodeType => {
-            if (node.id === editingId) {
-              return { ...node, name: value };
-            }
-            if (node.children) {
-              return {
-                ...node,
-                children: node.children.map(updateNode)
-              };
-            }
-            return node;
-          };
-          return updateNode(prev);
-        });
-        return;
+      if (editingId) {
+        const data = await eidtNodeApi(value, editingId)
+        if (data) {
+          setTreeData(prev => {
+            const updateNode = (node: TreeNodeType): TreeNodeType => {
+              if (node.id === editingId) {
+                return { ...node, name: value };
+              }
+              if (node.children) {
+                return {
+                  ...node,
+                  children: node.children.map(updateNode)
+                };
+              }
+              return node;
+            };
+            return updateNode(prev);
+          });
+          return;
+        }
+
       }
 
       // Handle adding new node
